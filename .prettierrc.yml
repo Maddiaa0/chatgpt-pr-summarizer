@@ -1,0 +1,15 @@
+bracketSpacing: true
+printWidth: 120
+proseWrap: "always"
+singleQuote: false
+tabWidth: 2
+trailingComma: "all"
+arrowParens: "avoid"
+
+overrides:
+  - files: "*.ts"
+    options:
+      importOrder: ["<THIRD_PARTY_MODULES>", "^[./]"]
+      importOrderParserPlugins: ["typescript"]
+      importOrderSeparation: true
+      importOrderSortSpecifiers: true

@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "lib": ["ES2020"],
+    "skipLibCheck": true,
+    "declaration": true,
+    "esModuleInterop": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "resolveJsonModule": true,
+    "inlineSourceMap": true,
+    "noImplicitThis": false,
+    "noUnusedLocals": true,
+    "noImplicitAny": true,
+    "strict": true,
+    "outDir": "dist",
+    "types": ["node"]
+  },
+  "include": ["src/*", "src/utils/index.ts", "src/utils/diff.ts"],
+  "exclude": ["node_modules", "./node_modules", "./node_modules/*", "./node_modules/@types/node/index.d.ts"]
+}

@@ -1,13 +1,17 @@
-name: "Hello World"
-description: "Greet someone and record the time"
+name: "Chat GPT PR Explainer"
+description: "Get a synopsis of the changes made in a PR"
 inputs:
-  who-to-greet: # id of input
-    description: "Who to greet"
+  chat-gpt-session-key: # id of input
+    description: "chat gpt session key"
     required: true
-    default: "World"
-outputs:
-  time: # id of output
-    description: "The time we greeted you"
 runs:
-  using: "node16"
-  main: "index.js"
+  using: "composite"
+    - run: Get Diff 
+      id: git-diff
+      uses: technote-space/get-diff-action@v4
+    - run: Get Info from Chat GPT 
+      using: "node16"
+      main: "dist/index.js"
+      with: 
+        diff: steps.git-diff.outputs.diff
+
