@@ -6,6 +6,17 @@ inputs:
   chat-gpt-session-key: # id of input
     description: "chat gpt session key"
     required: true
+  DOT:
+    description: Dot.
+    default: "..."
+    required: false
+  GITHUB_TOKEN:
+    description: Secret GitHub API token used to make API requests.
+    default: ${{ github.token }}
+    required: false
+  SUPPRESS_ERROR:
+    description: Whether to suppress git diff error.
+    required: false
 
 runs:
   using: "node16"

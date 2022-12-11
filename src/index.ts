@@ -35,15 +35,15 @@ async function run(): Promise<void> {
     }
 
     // Setup github api
-    const token = core.getIDToken();
     const octokit = github.getOctokit(inputs.token);
-    console.log(token);
     console.log(github.context);
 
     // Get pr diff
     console.log("diff");
     const context = new Context();
     const diff = await getDiff(context);
+    console.log("second context");
+    console.log(context);
     console.log(diff);
 
     // Get summary from chatgpt
