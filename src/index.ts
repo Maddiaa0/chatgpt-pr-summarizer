@@ -53,6 +53,9 @@ async function run(): Promise<void> {
     console.log(inputs.chatGptSessionKey);
     const summary = await getSummary(inputs.chatGptSessionKey, diff);
 
+    console.log("summary");
+    console.log(summary);
+
     // Create commit comment with output
     await octokit.rest.repos.createCommitComment({
       owner: owner,

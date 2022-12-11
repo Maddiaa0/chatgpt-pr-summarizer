@@ -105529,6 +105529,8 @@ function run() {
                     return [4 /*yield*/, getSummary(inputs.chatGptSessionKey, diff)];
                 case 3:
                     summary = _c.sent();
+                    console.log("summary");
+                    console.log(summary);
                     // Create commit comment with output
                     return [4 /*yield*/, octokit.rest.repos.createCommitComment({
                             owner: owner,
