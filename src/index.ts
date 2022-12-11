@@ -3,14 +3,13 @@ import github from "@actions/github";
 import { inspect } from "util";
 import { getSummary } from "./chatgpt";
 import { getDiff } from "./diff";
-import { getSha } from "./utils";
+import { getPrNumber, getSha } from "./utils";
 import { Context } from "@actions/github/lib/context";
 import { Logger } from "@technote-space/github-action-log-helper";
 
 type Inputs = {
   token: string;
   repository: string;
-  sha: string;
   body: string;
   chatGptSessionKey: string;
 };
@@ -21,14 +20,16 @@ async function run(): Promise<void> {
     const inputs: Inputs = {
       token: core.getInput("GITHUB_TOKEN"),
       repository: core.getInput("repository"),
-      sha: core.getInput("sha"),
       body: core.getInput("body"),
       chatGptSessionKey: core.getInput("chat-gpt-session-key"),
     };
     const [owner, repo] = inputs.repository.split("/");
-    const sha = inputs.sha ? inputs.sha : getSha();
     if (!inputs.chatGptSessionKey) {
       throw new Error("Missing Session Key");
+    }
+    const prNumber = getPrNumber();
+    if (!prNumber) {
+      throw new Error("Cannot determine pr number");
     }
 
     // Setup github api
@@ -53,10 +54,10 @@ async function run(): Promise<void> {
     console.log(summary);
 
     // Create commit comment with output
-    await octokit.rest.repos.createCommitComment({
+    await octokit.rest.issues.createComment({
       owner: owner,
       repo: repo,
-      commit_sha: sha,
+      issue_number: prNumber,
       body: summary,
     });
   } catch (error) {

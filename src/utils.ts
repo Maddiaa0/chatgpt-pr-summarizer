@@ -7,11 +7,11 @@ import { getInput } from "@actions/core";
 import { Utils, ApiHelper } from "@technote-space/github-action-helper";
 import github from "@actions/github";
 
-export function getSha() {
+export function getPrNumber() {
   if (github.context.eventName == "pull_request") {
-    return github.context.payload.pull_request?.head.sha;
+    return github.context.payload.pull_request?.number;
   } else {
-    return github.context.sha;
+    return github.context.payload.issue?.number;
   }
 }
 

@@ -105360,13 +105360,13 @@ Object.defineProperty(Logger, "resetForTesting", {
 var REMOTE_NAME = "chatgpt-pr";
 
 // Taken from: https://github.dev/technote-space/get-diff-action/tree/main/src/utils
-function getSha() {
-    var _a;
+function getPrNumber() {
+    var _a, _b;
     if (github.context.eventName == "pull_request") {
-        return (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.head.sha;
+        return (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.number;
     }
     else {
-        return github.context.sha;
+        return (_b = github.context.payload.issue) === null || _b === void 0 ? void 0 : _b.number;
     }
 }
 var getDiffInfoForPR = function (pull, context) { return ({
@@ -105489,7 +105489,7 @@ function getDiff(logger, context) {
 
 function run() {
     return __awaiter$1(this, void 0, void 0, function () {
-        var inputs, _a, owner, repo, sha, octokit, context, logger, diff, summary, error_1;
+        var inputs, _a, owner, repo, prNumber, octokit, context, logger, diff, summary, error_1;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
@@ -105497,14 +105497,16 @@ function run() {
                     inputs = {
                         token: coreExports.getInput("GITHUB_TOKEN"),
                         repository: coreExports.getInput("repository"),
-                        sha: coreExports.getInput("sha"),
                         body: coreExports.getInput("body"),
                         chatGptSessionKey: coreExports.getInput("chat-gpt-session-key")
                     };
                     _a = inputs.repository.split("/"), owner = _a[0], repo = _a[1];
-                    sha = inputs.sha ? inputs.sha : getSha();
                     if (!inputs.chatGptSessionKey) {
                         throw new Error("Missing Session Key");
+                    }
+                    prNumber = getPrNumber();
+                    if (!prNumber) {
+                        throw new Error("Cannot determine pr number");
                     }
                     octokit = github.getOctokit(inputs.token);
                     console.log(github.context);
@@ -105527,10 +105529,10 @@ function run() {
                     console.log("summary");
                     console.log(summary);
                     // Create commit comment with output
-                    return [4 /*yield*/, octokit.rest.repos.createCommitComment({
+                    return [4 /*yield*/, octokit.rest.issues.createComment({
                             owner: owner,
                             repo: repo,
-                            commit_sha: sha,
+                            issue_number: prNumber,
                             body: summary
                         })];
                 case 3:
