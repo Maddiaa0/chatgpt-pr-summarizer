@@ -5,6 +5,7 @@ import { getSummary } from "./chatgpt";
 import { getDiff } from "./diff";
 import { getSha } from "./utils";
 import { Context } from "@actions/github/lib/context";
+import { Logger } from "@technote-space/github-action-log-helper";
 
 type Inputs = {
   token: string;
@@ -41,7 +42,8 @@ async function run(): Promise<void> {
     // Get pr diff
     console.log("diff");
     const context = new Context();
-    const diff = await getDiff(context);
+    const logger = new Logger();
+    const diff = await getDiff(logger, context);
     console.log("second context");
     console.log(context);
     console.log(diff);

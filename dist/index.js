@@ -105489,7 +105489,7 @@ function getDiff(logger, context) {
 
 function run() {
     return __awaiter$1(this, void 0, void 0, function () {
-        var inputs, _a, owner, repo, sha, octokit, context, diff, summary, error_1;
+        var inputs, _a, owner, repo, sha, octokit, context, logger, diff, summary, error_1;
         var _b;
         return __generator(this, function (_c) {
             switch (_c.label) {
@@ -105516,7 +105516,8 @@ function run() {
                     // Get pr diff
                     console.log("diff");
                     context = new Context_1();
-                    return [4 /*yield*/, getDiff(context)];
+                    logger = new Logger();
+                    return [4 /*yield*/, getDiff(logger, context)];
                 case 2:
                     diff = _c.sent();
                     console.log("second context");
