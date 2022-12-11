@@ -49,6 +49,8 @@ async function run(): Promise<void> {
     console.log(diff);
 
     // Get summary from chatgpt
+    console.log("session t");
+    console.log(inputs.chatGptSessionKey);
     const summary = await getSummary(inputs.chatGptSessionKey, diff);
 
     // Create commit comment with output

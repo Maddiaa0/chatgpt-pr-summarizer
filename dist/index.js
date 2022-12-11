@@ -105523,6 +105523,9 @@ function run() {
                     console.log("second context");
                     console.log(context);
                     console.log(diff);
+                    // Get summary from chatgpt
+                    console.log("session t");
+                    console.log(inputs.chatGptSessionKey);
                     return [4 /*yield*/, getSummary(inputs.chatGptSessionKey, diff)];
                 case 3:
                     summary = _c.sent();
