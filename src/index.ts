@@ -2,7 +2,9 @@ import core from "@actions/core";
 import github from "@actions/github";
 import { inspect } from "util";
 import { getSummary } from "./chatgpt";
+import { getDiff } from "./diff";
 import { getSha } from "./utils";
+import { Context } from "@actions/github/lib/context";
 
 type Inputs = {
   token: string;
@@ -12,11 +14,11 @@ type Inputs = {
   path: string;
   position: number;
   chatGptSessionKey: string;
-  diff: string;
 };
 
 async function run(): Promise<void> {
   try {
+    // Parse action inputs
     const inputs: Inputs = {
       token: await core.getIDToken(),
       repository: core.getInput("repository"),
@@ -25,7 +27,6 @@ async function run(): Promise<void> {
       path: core.getInput("path"),
       position: +core.getInput("position"),
       chatGptSessionKey: core.getInput("chat-gpt-session-key"),
-      diff: core.getInput("diff"),
     };
     const [owner, repo] = inputs.repository.split("/");
     const sha = inputs.sha ? inputs.sha : getSha();
@@ -33,16 +34,20 @@ async function run(): Promise<void> {
       throw new Error("Missing Session Key");
     }
 
+    // Setup github api
     const token = core.getIDToken();
     const octokit = github.getOctokit(inputs.token);
     console.log(token);
     console.log(github.context);
 
+    // Get pr diff
     console.log("diff");
-    console.log(inputs.diff);
-    // Get the json webhook payload for the event that triggered the workflow
+    const context = new Context();
+    const diff = await getDiff(context);
+    console.log(diff);
 
-    const summary = await getSummary(inputs.chatGptSessionKey, inputs.diff);
+    // Get summary from chatgpt
+    const summary = await getSummary(inputs.chatGptSessionKey, diff);
 
     // Create commit comment with output
     await octokit.rest.repos.createCommitComment({
