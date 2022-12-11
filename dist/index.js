@@ -103600,6 +103600,8 @@ var utils = /*#__PURE__*/Object.freeze({
     ensureNotNull: ensureNotNull
 });
 const getSender = (context) => context.payload.sender && context.payload.sender.type === 'User' ? context.payload.sender.login : false;
+const getGitUrlAuthInfo = (token) => token ? `${getActor()}:${token}@` : '';
+const getGitUrlWithToken = (context, token) => `https://${getGitUrlAuthInfo(token)}github.com/${context.repo.owner}/${context.repo.repo}.git`;
 
 class ApiHelper {
     constructor(octokit, context, logger, options) {
@@ -104305,6 +104307,573 @@ class Command {
     }
 }
 
+class GitHelper {
+    constructor(logger, options) {
+        Object.defineProperty(this, "logger", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: logger
+        });
+        Object.defineProperty(this, "command", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "cloneDepth", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "filter", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "token", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "origin", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: undefined
+        });
+        Object.defineProperty(this, "quietIfNotOrigin", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: true
+        });
+        Object.defineProperty(this, "shouldSuppressError", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: () => !isCommandDebug()
+        });
+        Object.defineProperty(this, "isQuiet", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: () => !isOutputDebug() && (!this.origin || this.quietIfNotOrigin)
+        });
+        Object.defineProperty(this, "runCommand", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, commands) => {
+                const result = [];
+                try {
+                    for (const command of (Array.isArray(commands) ? commands : [commands])) {
+                        if (typeof command === 'string') {
+                            const output = (await this.command.execAsync({ command, cwd: workDir }));
+                            result.push({
+                                command: output.command,
+                                stdout: split$1(output.stdout),
+                                stderr: split$1(output.stderr),
+                            });
+                        }
+                        else {
+                            const output = (await this.command.execAsync({ cwd: workDir, ...command }));
+                            result.push({
+                                command: output.command,
+                                stdout: split$1(output.stdout),
+                                stderr: split$1(output.stderr),
+                            });
+                        }
+                    }
+                    return result;
+                }
+                catch (error) {
+                    console.log();
+                    console.log(error);
+                    throw error;
+                }
+            }
+        });
+        Object.defineProperty(this, "initialize", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, refresh = true) => {
+                if (isCloned(workDir) && !refresh) {
+                    return;
+                }
+                if (fs$1.existsSync(workDir)) {
+                    await this.runCommand(workDir, { command: 'rm', args: ['-rdf', workDir] });
+                }
+                fs$1.mkdirSync(workDir, { recursive: true });
+                await this.runCommand(workDir, { command: 'git init', args: ['.'] });
+            }
+        });
+        Object.defineProperty(this, "useOrigin", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (origin, quiet) => {
+                this.origin = typeof origin === 'boolean' ? (origin ? 'origin' : undefined) : origin;
+                if (quiet !== undefined) {
+                    this.quietIfNotOrigin = quiet;
+                }
+            }
+        });
+        Object.defineProperty(this, "getRemoteName", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: () => this.origin ?? 'origin'
+        });
+        Object.defineProperty(this, "getRemote", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (context) => this.origin ?? getGitUrlWithToken(context, this.token)
+        });
+        Object.defineProperty(this, "addOrigin", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, context) => {
+                await this.initialize(workDir, false);
+                await this.runCommand(workDir, {
+                    command: 'git remote add',
+                    args: [this.getRemoteName(), getGitUrlWithToken(context, this.token)],
+                    stderrToStdout: this.isQuiet(),
+                    altCommand: `git remote add ${this.getRemoteName()}`,
+                    suppressError: this.shouldSuppressError(),
+                });
+            }
+        });
+        Object.defineProperty(this, "getCurrentBranchName", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir) => {
+                if (!isCloned(workDir)) {
+                    return '';
+                }
+                return (await this.runCommand(workDir, {
+                    command: 'git rev-parse',
+                    args: ['--abbrev-ref', 'HEAD'],
+                    suppressError: this.shouldSuppressError(),
+                    stderrToStdout: true,
+                }))[0].stdout[0]?.trim() ?? '';
+            }
+        });
+        Object.defineProperty(this, "cloneBranch", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, branch, context) => {
+                await this.runCommand(workDir, {
+                    command: 'git clone',
+                    args: [`--branch=${branch}`, this.cloneDepth, this.getRemote(context), '.'],
+                    stderrToStdout: this.isQuiet(),
+                    altCommand: `git clone --branch=${branch}`,
+                    suppressError: this.shouldSuppressError(),
+                });
+            }
+        });
+        Object.defineProperty(this, "clonePR", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, context) => {
+                await this.runCommand(workDir, [
+                    {
+                        command: 'git clone',
+                        args: [this.cloneDepth, this.getRemote(context), '.'],
+                        stderrToStdout: this.isQuiet(),
+                        altCommand: 'git clone',
+                        suppressError: this.shouldSuppressError(),
+                    },
+                    {
+                        command: 'git fetch',
+                        args: [this.getRemote(context), `+${context.ref}`],
+                        quiet: this.isQuiet(),
+                        altCommand: `git fetch ${this.getRemoteName()} ${context.ref}`,
+                        stderrToStdout: true,
+                    },
+                    {
+                        command: 'git checkout',
+                        args: ['-qf', 'FETCH_HEAD'],
+                    },
+                ]);
+            }
+        });
+        Object.defineProperty(this, "clone", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, context) => {
+                if (isCloned(workDir)) {
+                    return;
+                }
+                if (isBranch(context)) {
+                    await this.cloneBranch(workDir, getBranch(context), context);
+                }
+                else if (isPrRef(context)) {
+                    await this.clonePR(workDir, context);
+                }
+                else {
+                    await this.checkout(workDir, context);
+                }
+            }
+        });
+        Object.defineProperty(this, "gitInit", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, branch) => {
+                await this.initialize(workDir);
+                await this.runCommand(workDir, { command: 'git checkout', args: ['--orphan', branch], stderrToStdout: true });
+            }
+        });
+        Object.defineProperty(this, "fetchOrigin", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, context, options, refspec) => {
+                await this.addOrigin(workDir, context);
+                await this.runCommand(workDir, {
+                    command: 'git fetch',
+                    args: [
+                        ...(options ?? []),
+                        this.getRemoteName(),
+                        ...(refspec ?? []),
+                    ],
+                    suppressError: this.shouldSuppressError(),
+                    stderrToStdout: true,
+                });
+            }
+        });
+        Object.defineProperty(this, "checkout", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, context) => {
+                await this.fetchOrigin(workDir, context, ['--no-tags'], [getRefspec(context)]);
+                await this.runCommand(workDir, [
+                    {
+                        command: 'git checkout',
+                        args: ['-qf', context.sha],
+                        stderrToStdout: true,
+                    },
+                ]);
+            }
+        });
+        Object.defineProperty(this, "fetchBranch", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, branch, context) => {
+                const branchName = getBranch(branch, false);
+                await this.runCommand(workDir, {
+                    command: 'git fetch',
+                    args: ['--prune', '--no-tags', '--no-recurse-submodules', this.cloneDepth, this.getRemote(context), `+refs/heads/${branchName}:refs/remotes/${this.getRemoteName()}/${branchName}`],
+                    altCommand: `git fetch --prune --no-tags --no-recurse-submodules${this.cloneDepth} ${this.getRemoteName()} +refs/heads/${branchName}:refs/remotes/${this.getRemoteName()}/${branchName}`,
+                    suppressError: this.shouldSuppressError(),
+                    stderrToStdout: true,
+                });
+            }
+        });
+        Object.defineProperty(this, "createBranch", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, branch) => {
+                await this.runCommand(workDir, { command: 'git checkout', args: ['-b', branch], stderrToStdout: true });
+            }
+        });
+        Object.defineProperty(this, "switchBranch", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, branch) => {
+                await this.runCommand(workDir, {
+                    command: 'git checkout',
+                    args: ['-b', branch, `${this.getRemoteName()}/${branch}`],
+                    suppressError: this.shouldSuppressError(),
+                    stderrToStdout: true,
+                });
+                await this.runCommand(workDir, {
+                    command: 'git checkout',
+                    args: [branch],
+                    suppressError: this.shouldSuppressError(),
+                    stderrToStdout: true,
+                });
+            }
+        });
+        Object.defineProperty(this, "config", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, config) => {
+                if (config.defaultBranch) {
+                    await this.runCommand(workDir, [
+                        {
+                            command: 'git config',
+                            args: ['--global', 'init.defaultBranch', config.defaultBranch],
+                        },
+                    ]);
+                }
+                if (config.name) {
+                    await this.runCommand(workDir, [
+                        {
+                            command: 'git config',
+                            args: ['user.name', config.name],
+                        },
+                    ]);
+                }
+                if (config.email) {
+                    await this.runCommand(workDir, [
+                        {
+                            command: 'git config',
+                            args: ['user.email', config.email],
+                        },
+                    ]);
+                }
+            }
+        });
+        Object.defineProperty(this, "getDiff", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir) => (await this.runCommand(workDir, {
+                command: 'git status',
+                args: ['--short', '-uno'],
+                suppressOutput: true,
+            }))[0].stdout.filter(line => line.match(/^[MDA]\s+/)).filter(this.filter).map(line => line.replace(/^[MDA]\s+/, ''))
+        });
+        Object.defineProperty(this, "getRefDiff", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, baseRef, compareRef, diffFilter, dot) => {
+                const toDiffRef = (ref) => 'HEAD' === ref ? 'HEAD' : (isPrRef(ref) ? ref.replace(/^refs\//, '') : `${this.getRemoteName()}/${getBranch(ref, false)}`);
+                return (await this.runCommand(workDir, {
+                    command: 'git diff',
+                    args: [`${toDiffRef(baseRef)}${dot ?? '...'}${toDiffRef(compareRef)}`, '--name-only', diffFilter ? `--diff-filter=${diffFilter}` : ''],
+                    suppressOutput: true,
+                }))[0].stdout.filter(item => !!item.trim());
+            }
+        });
+        Object.defineProperty(this, "checkDiff", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir) => !!(await this.getDiff(workDir)).length
+        });
+        Object.defineProperty(this, "commit", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, message, options) => {
+                await this.runCommand(workDir, { command: 'git add', args: ['--all'] });
+                if (!options?.allowEmpty && !await this.checkDiff(workDir)) {
+                    this.logger.info('There is no diff.');
+                    return false;
+                }
+                await this.makeCommit(workDir, message, options);
+                return true;
+            }
+        });
+        Object.defineProperty(this, "makeCommit", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, message, options) => {
+                const count = options?.count ?? 10; // eslint-disable-line no-magic-numbers
+                const allowEmpty = options?.allowEmpty ?? false;
+                const args = options?.args ?? [];
+                await this.runCommand(workDir, [
+                    {
+                        command: 'git commit',
+                        args: [allowEmpty ? '--allow-empty' : '', ...args, '-qm', message],
+                    },
+                    {
+                        command: 'git show',
+                        args: [`--stat-count=${count}`, 'HEAD'],
+                    },
+                ]);
+            }
+        });
+        Object.defineProperty(this, "getTags", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, options) => (await this.runCommand(workDir, {
+                command: 'git tag',
+                suppressOutput: options?.suppressOutput || options?.quiet,
+                altCommand: options?.quiet ? '' : undefined,
+            }))[0].stdout
+        });
+        Object.defineProperty(this, "fetchTags", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, context, splitSize = 20) => {
+                await this.runCommand(workDir, [
+                    ...arrayChunk(await this.getTags(workDir, { quiet: true }), splitSize).map(tags => ({
+                        command: 'git tag',
+                        args: ['-d', ...tags],
+                        quiet: true,
+                    })),
+                    {
+                        command: 'git fetch',
+                        args: [this.getRemote(context), '--tags'],
+                        quiet: this.isQuiet(),
+                        altCommand: `git fetch ${this.getRemoteName()} --tags`,
+                    },
+                ]);
+            }
+        });
+        Object.defineProperty(this, "deleteTag", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, tags, context, splitSize = 20) => {
+                const getTagRef = (tag) => /^(refs\/)?tags\//.test(tag) ? tag : `tags/${tag}`;
+                await this.runCommand(workDir, arrayChunk((typeof tags === 'string' ? [tags] : tags).map(getTagRef), splitSize).map(tags => ({
+                    command: 'git push',
+                    args: [this.getRemote(context), '--delete', ...tags],
+                    stderrToStdout: this.isQuiet(),
+                    altCommand: `git push ${this.getRemoteName()} --delete ${tags.join(' ')}`,
+                    suppressError: this.shouldSuppressError(),
+                })));
+                await this.deleteLocalTag(workDir, tags, splitSize);
+            }
+        });
+        Object.defineProperty(this, "copyTag", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, newTag, fromTag, context) => {
+                await this.deleteTag(workDir, newTag, context);
+                await this.runCommand(workDir, [
+                    {
+                        command: 'git tag',
+                        args: [newTag, fromTag],
+                    },
+                    {
+                        command: 'git push',
+                        args: [this.getRemote(context), `refs/tags/${newTag}`],
+                        stderrToStdout: this.isQuiet(),
+                        altCommand: `git push ${this.getRemoteName()} refs/tags/${newTag}`,
+                    },
+                ]);
+            }
+        });
+        Object.defineProperty(this, "deleteLocalTag", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, tags, splitSize = 20) => {
+                const getTag = (tag) => tag.replace(/^(refs\/)?tags\//, '');
+                await this.runCommand(workDir, arrayChunk((typeof tags === 'string' ? [tags] : tags).map(getTag), splitSize).map(tags => ({
+                    command: 'git tag',
+                    args: ['-d', ...tags],
+                    suppressError: this.shouldSuppressError(),
+                    stderrToStdout: true,
+                })));
+            }
+        });
+        Object.defineProperty(this, "addLocalTag", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, tags) => {
+                if ('string' === typeof tags) {
+                    await this.runCommand(workDir, { command: 'git tag', args: [tags] });
+                }
+                else {
+                    for (const tag of tags) {
+                        await this.addLocalTag(workDir, tag);
+                    }
+                }
+            }
+        });
+        Object.defineProperty(this, "push", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, branch, context, options) => {
+                const args = [];
+                if (options?.withTag) {
+                    args.push('--tags');
+                }
+                if (options?.force) {
+                    args.push('--force');
+                }
+                if (options?.args) {
+                    args.push(...options.args);
+                }
+                await this.runCommand(workDir, {
+                    command: 'git push',
+                    args: args.concat([this.getRemote(context), `${branch}:refs/heads/${branch}`]),
+                    stderrToStdout: this.isQuiet(),
+                    altCommand: `git push ${args.concat([this.getRemoteName(), `${branch}:refs/heads/${branch}`]).join(' ')}`,
+                });
+            }
+        });
+        Object.defineProperty(this, "forcePush", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir, branch, context) => this.push(workDir, branch, context, { force: true })
+        });
+        Object.defineProperty(this, "getLastTag", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir) => {
+                if (!isCloned(workDir)) {
+                    throw new Error('Not a git repository');
+                }
+                return 'v' + ((await this.getTags(workDir)).filter(tag => /^v?\d+(\.\d+)*$/.test(tag)).sort(versionCompare).reverse()[0]?.replace(/^v/, '') ?? '0.0.0');
+            }
+        });
+        Object.defineProperty(this, "getNewPatchVersion", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir) => generateNewPatchVersion(await this.getLastTag(workDir))
+        });
+        Object.defineProperty(this, "getNewMinorVersion", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir) => generateNewMinorVersion(await this.getLastTag(workDir))
+        });
+        Object.defineProperty(this, "getNewMajorVersion", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: async (workDir) => generateNewMajorVersion(await this.getLastTag(workDir))
+        });
+        this.command = new Command(logger);
+        this.token = options?.token ?? getAccessToken(true);
+        if (options && options.depth) {
+            this.cloneDepth = options.depth > 0 ? `--depth=${options.depth}` : ''; // eslint-disable-line no-magic-numbers
+        }
+        else {
+            this.cloneDepth = '--depth=3';
+        }
+        if (options && options.filter) {
+            this.filter = options.filter;
+        }
+        else {
+            this.filter = (line) => !!line.trim();
+        }
+    }
+}
+
 var sprintf = {};
 
 /* global window, exports, define */
@@ -104882,23 +105451,35 @@ var command = new Command(new Logger());
 var getDot = function () { return coreExports.getInput("DOT", { required: true }); };
 var getCompareRef = function (ref) { return (utils.isRef(ref) ? utils.getLocalRefspec(ref, REMOTE_NAME) : ref); };
 var isSuppressGitDiffError = function () { return utils.getBoolValue(coreExports.getInput("SUPPRESS_ERROR")); };
-function getDiff(context) {
+function getDiff(logger, context) {
     return __awaiter$1(this, void 0, void 0, function () {
-        var dot, diffInfo, stdout;
+        var helper, diffInfo, refs, dot, stdout;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    dot = getDot();
+                    helper = new GitHelper(logger);
+                    helper.useOrigin(REMOTE_NAME);
                     return [4 /*yield*/, getDiffInfo(utils.getOctokit(), context)];
                 case 1:
                     diffInfo = _a.sent();
+                    refs = [utils.normalizeRef(context.ref)];
+                    if (utils.isRef(diffInfo.base)) {
+                        refs.push(diffInfo.base);
+                    }
+                    if (utils.isRef(diffInfo.head)) {
+                        refs.push(diffInfo.head);
+                    }
+                    return [4 /*yield*/, helper.fetchOrigin(utils.getWorkspace(), context, ["--no-tags", "--no-recurse-submodules", "--depth=10000"], utils.uniqueArray(refs).map(function (ref) { return utils.getRefspec(ref, REMOTE_NAME); }))];
+                case 2:
+                    _a.sent();
+                    dot = getDot();
                     return [4 /*yield*/, command.execAsync({
                             command: "git diff",
                             args: ["".concat(getCompareRef(diffInfo.base)).concat(dot).concat(getCompareRef(diffInfo.head))],
                             cwd: utils.getWorkspace(),
                             suppressError: isSuppressGitDiffError()
                         })];
-                case 2:
+                case 3:
                     stdout = (_a.sent()).stdout;
                     return [2 /*return*/, stdout];
             }
@@ -104908,7 +105489,7 @@ function getDiff(context) {
 
 function run() {
     return __awaiter$1(this, void 0, void 0, function () {
-        var inputs, _a, owner, repo, sha, token, octokit, context, diff, summary, error_1;
+        var inputs, _a, owner, repo, sha, octokit, context, diff, summary, error_1;
         var _b;
         return __generator(this, function (_c) {
             switch (_c.label) {
@@ -104930,9 +105511,7 @@ function run() {
                     if (!inputs.chatGptSessionKey) {
                         throw new Error("Missing Session Key");
                     }
-                    token = coreExports.getIDToken();
                     octokit = github.getOctokit(inputs.token);
-                    console.log(token);
                     console.log(github.context);
                     // Get pr diff
                     console.log("diff");
@@ -104940,6 +105519,8 @@ function run() {
                     return [4 /*yield*/, getDiff(context)];
                 case 2:
                     diff = _c.sent();
+                    console.log("second context");
+                    console.log(context);
                     console.log(diff);
                     return [4 /*yield*/, getSummary(inputs.chatGptSessionKey, diff)];
                 case 3:

@@ -1,2 +1,3 @@
 import type { Context } from "@actions/github/lib/context";
-export declare function getDiff(context: Context): Promise<string>;
+import { Logger } from "@technote-space/github-action-log-helper";
+export declare function getDiff(logger: Logger, context: Context): Promise<string>;
