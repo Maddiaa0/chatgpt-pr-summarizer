@@ -15,3 +15,9 @@ export type DiffInfo = Readonly<{
   base: string;
   head: string;
 }>;
+export type Inputs = {
+  token: string;
+  repository: string;
+  body: string;
+  chatGptSessionKey: string;
+};

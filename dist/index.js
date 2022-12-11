@@ -88055,6 +88055,489 @@ function getOctokit$1(token, options, ...additionalPlugins) {
 }
 getOctokit_1 = github.getOctokit = getOctokit$1;
 
+var sprintf = {};
+
+/* global window, exports, define */
+
+(function (exports) {
+	!function() {
+
+	    var re = {
+	        not_string: /[^s]/,
+	        not_bool: /[^t]/,
+	        not_type: /[^T]/,
+	        not_primitive: /[^v]/,
+	        number: /[diefg]/,
+	        numeric_arg: /[bcdiefguxX]/,
+	        json: /[j]/,
+	        not_json: /[^j]/,
+	        text: /^[^\x25]+/,
+	        modulo: /^\x25{2}/,
+	        placeholder: /^\x25(?:([1-9]\d*)\$|\(([^)]+)\))?(\+)?(0|'[^$])?(-)?(\d+)?(?:\.(\d+))?([b-gijostTuvxX])/,
+	        key: /^([a-z_][a-z_\d]*)/i,
+	        key_access: /^\.([a-z_][a-z_\d]*)/i,
+	        index_access: /^\[(\d+)\]/,
+	        sign: /^[+-]/
+	    };
+
+	    function sprintf(key) {
+	        // `arguments` is not an array, but should be fine for this call
+	        return sprintf_format(sprintf_parse(key), arguments)
+	    }
+
+	    function vsprintf(fmt, argv) {
+	        return sprintf.apply(null, [fmt].concat(argv || []))
+	    }
+
+	    function sprintf_format(parse_tree, argv) {
+	        var cursor = 1, tree_length = parse_tree.length, arg, output = '', i, k, ph, pad, pad_character, pad_length, is_positive, sign;
+	        for (i = 0; i < tree_length; i++) {
+	            if (typeof parse_tree[i] === 'string') {
+	                output += parse_tree[i];
+	            }
+	            else if (typeof parse_tree[i] === 'object') {
+	                ph = parse_tree[i]; // convenience purposes only
+	                if (ph.keys) { // keyword argument
+	                    arg = argv[cursor];
+	                    for (k = 0; k < ph.keys.length; k++) {
+	                        if (arg == undefined) {
+	                            throw new Error(sprintf('[sprintf] Cannot access property "%s" of undefined value "%s"', ph.keys[k], ph.keys[k-1]))
+	                        }
+	                        arg = arg[ph.keys[k]];
+	                    }
+	                }
+	                else if (ph.param_no) { // positional argument (explicit)
+	                    arg = argv[ph.param_no];
+	                }
+	                else { // positional argument (implicit)
+	                    arg = argv[cursor++];
+	                }
+
+	                if (re.not_type.test(ph.type) && re.not_primitive.test(ph.type) && arg instanceof Function) {
+	                    arg = arg();
+	                }
+
+	                if (re.numeric_arg.test(ph.type) && (typeof arg !== 'number' && isNaN(arg))) {
+	                    throw new TypeError(sprintf('[sprintf] expecting number but found %T', arg))
+	                }
+
+	                if (re.number.test(ph.type)) {
+	                    is_positive = arg >= 0;
+	                }
+
+	                switch (ph.type) {
+	                    case 'b':
+	                        arg = parseInt(arg, 10).toString(2);
+	                        break
+	                    case 'c':
+	                        arg = String.fromCharCode(parseInt(arg, 10));
+	                        break
+	                    case 'd':
+	                    case 'i':
+	                        arg = parseInt(arg, 10);
+	                        break
+	                    case 'j':
+	                        arg = JSON.stringify(arg, null, ph.width ? parseInt(ph.width) : 0);
+	                        break
+	                    case 'e':
+	                        arg = ph.precision ? parseFloat(arg).toExponential(ph.precision) : parseFloat(arg).toExponential();
+	                        break
+	                    case 'f':
+	                        arg = ph.precision ? parseFloat(arg).toFixed(ph.precision) : parseFloat(arg);
+	                        break
+	                    case 'g':
+	                        arg = ph.precision ? String(Number(arg.toPrecision(ph.precision))) : parseFloat(arg);
+	                        break
+	                    case 'o':
+	                        arg = (parseInt(arg, 10) >>> 0).toString(8);
+	                        break
+	                    case 's':
+	                        arg = String(arg);
+	                        arg = (ph.precision ? arg.substring(0, ph.precision) : arg);
+	                        break
+	                    case 't':
+	                        arg = String(!!arg);
+	                        arg = (ph.precision ? arg.substring(0, ph.precision) : arg);
+	                        break
+	                    case 'T':
+	                        arg = Object.prototype.toString.call(arg).slice(8, -1).toLowerCase();
+	                        arg = (ph.precision ? arg.substring(0, ph.precision) : arg);
+	                        break
+	                    case 'u':
+	                        arg = parseInt(arg, 10) >>> 0;
+	                        break
+	                    case 'v':
+	                        arg = arg.valueOf();
+	                        arg = (ph.precision ? arg.substring(0, ph.precision) : arg);
+	                        break
+	                    case 'x':
+	                        arg = (parseInt(arg, 10) >>> 0).toString(16);
+	                        break
+	                    case 'X':
+	                        arg = (parseInt(arg, 10) >>> 0).toString(16).toUpperCase();
+	                        break
+	                }
+	                if (re.json.test(ph.type)) {
+	                    output += arg;
+	                }
+	                else {
+	                    if (re.number.test(ph.type) && (!is_positive || ph.sign)) {
+	                        sign = is_positive ? '+' : '-';
+	                        arg = arg.toString().replace(re.sign, '');
+	                    }
+	                    else {
+	                        sign = '';
+	                    }
+	                    pad_character = ph.pad_char ? ph.pad_char === '0' ? '0' : ph.pad_char.charAt(1) : ' ';
+	                    pad_length = ph.width - (sign + arg).length;
+	                    pad = ph.width ? (pad_length > 0 ? pad_character.repeat(pad_length) : '') : '';
+	                    output += ph.align ? sign + arg + pad : (pad_character === '0' ? sign + pad + arg : pad + sign + arg);
+	                }
+	            }
+	        }
+	        return output
+	    }
+
+	    var sprintf_cache = Object.create(null);
+
+	    function sprintf_parse(fmt) {
+	        if (sprintf_cache[fmt]) {
+	            return sprintf_cache[fmt]
+	        }
+
+	        var _fmt = fmt, match, parse_tree = [], arg_names = 0;
+	        while (_fmt) {
+	            if ((match = re.text.exec(_fmt)) !== null) {
+	                parse_tree.push(match[0]);
+	            }
+	            else if ((match = re.modulo.exec(_fmt)) !== null) {
+	                parse_tree.push('%');
+	            }
+	            else if ((match = re.placeholder.exec(_fmt)) !== null) {
+	                if (match[2]) {
+	                    arg_names |= 1;
+	                    var field_list = [], replacement_field = match[2], field_match = [];
+	                    if ((field_match = re.key.exec(replacement_field)) !== null) {
+	                        field_list.push(field_match[1]);
+	                        while ((replacement_field = replacement_field.substring(field_match[0].length)) !== '') {
+	                            if ((field_match = re.key_access.exec(replacement_field)) !== null) {
+	                                field_list.push(field_match[1]);
+	                            }
+	                            else if ((field_match = re.index_access.exec(replacement_field)) !== null) {
+	                                field_list.push(field_match[1]);
+	                            }
+	                            else {
+	                                throw new SyntaxError('[sprintf] failed to parse named argument key')
+	                            }
+	                        }
+	                    }
+	                    else {
+	                        throw new SyntaxError('[sprintf] failed to parse named argument key')
+	                    }
+	                    match[2] = field_list;
+	                }
+	                else {
+	                    arg_names |= 2;
+	                }
+	                if (arg_names === 3) {
+	                    throw new Error('[sprintf] mixing positional and named placeholders is not (yet) supported')
+	                }
+
+	                parse_tree.push(
+	                    {
+	                        placeholder: match[0],
+	                        param_no:    match[1],
+	                        keys:        match[2],
+	                        sign:        match[3],
+	                        pad_char:    match[4],
+	                        align:       match[5],
+	                        width:       match[6],
+	                        precision:   match[7],
+	                        type:        match[8]
+	                    }
+	                );
+	            }
+	            else {
+	                throw new SyntaxError('[sprintf] unexpected placeholder')
+	            }
+	            _fmt = _fmt.substring(match[0].length);
+	        }
+	        return sprintf_cache[fmt] = parse_tree
+	    }
+
+	    /**
+	     * export to either browser or node.js
+	     */
+	    /* eslint-disable quote-props */
+	    {
+	        exports['sprintf'] = sprintf;
+	        exports['vsprintf'] = vsprintf;
+	    }
+	    if (typeof window !== 'undefined') {
+	        window['sprintf'] = sprintf;
+	        window['vsprintf'] = vsprintf;
+	    }
+	    /* eslint-enable quote-props */
+	}(); // eslint-disable-line
+} (sprintf));
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const COLOR_MAP = {
+    'black': 0,
+    'red': 1,
+    'green': 2,
+    'yellow': 3,
+    'blue': 4,
+    'magenta': 5,
+    'cyan': 6,
+    'white': 7,
+};
+const ATTRIBUTE_MAP = {
+    'none': 0,
+    'bold': 1,
+    'underline': 4,
+    'italic': 3,
+};
+const split$1 = (value) => value.split(/\r?\n/);
+/**
+ * Logger
+ */
+class Logger {
+    /**
+     * @param {function|undefined} replacer replacer
+     * @param {boolean} notUseGroup not use group?
+     */
+    constructor(replacer, notUseGroup = false) {
+        Object.defineProperty(this, "notUseGroup", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: notUseGroup
+        });
+        Object.defineProperty(this, "replacer", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        /**
+         * @param {string} message message
+         * @return {string[]} messages
+         */
+        Object.defineProperty(this, "splitMessage", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (message) => split$1(message.replace(/\r?\n$/, ''))
+        });
+        /**
+         * @param {string} message message
+         * @param {any[]} args args
+         * @return {string} output string
+         */
+        Object.defineProperty(this, "getOutputString", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (message, ...args) => args.length ? sprintf.sprintf(this.replacer(message), ...args.map(arg => 'string' === typeof arg ? this.replacer(arg) : arg)) : this.replacer(message)
+        });
+        /**
+         * @param {function} output output function
+         * @param {function|null} replacer replacer
+         * @param {string|string[]} message message
+         * @param {any[]} args args
+         */
+        Object.defineProperty(this, "multiLineOutput", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (output, replacer, message, ...args) => {
+                if (!message) {
+                    output('');
+                    return;
+                }
+                if ('string' !== typeof message) {
+                    message.forEach(message => {
+                        this.multiLineOutput(output, replacer, message, ...args);
+                    });
+                    return;
+                }
+                this.splitMessage(message).forEach(message => output(this.getOutputString(replacer ? replacer(message) : message, ...args)));
+            }
+        });
+        /**
+         * @param {string|string[]} message message
+         * @param {any[]} args args
+         * @return {void}
+         */
+        Object.defineProperty(this, "log", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (message, ...args) => this.multiLineOutput(coreExports.info, null, message, ...args)
+        });
+        /**
+         * @param {string|string[]} message message
+         * @param {any[]} args args
+         * @return {void}
+         */
+        Object.defineProperty(this, "info", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (message, ...args) => this.multiLineOutput(coreExports.info, message => `> ${message}`, message, ...args)
+        });
+        /**
+         * @param {string|string[]} message message
+         * @param {any[]} args args
+         * @return {void}
+         */
+        Object.defineProperty(this, "debug", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (message, ...args) => this.multiLineOutput(coreExports.debug, null, message, ...args)
+        });
+        /**
+         * @param {string|string[]} message message
+         * @param {any[]} args args
+         * @return {void}
+         */
+        Object.defineProperty(this, "error", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (message, ...args) => this.multiLineOutput(coreExports.error, null, message, ...args)
+        });
+        /**
+         * @param {string|string[]} message message
+         * @param {any[]} args args
+         * @return {void}
+         */
+        Object.defineProperty(this, "warn", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (message, ...args) => this.multiLineOutput(coreExports.warning, null, message, ...args)
+        });
+        /**
+         * @param {string|string[]} message message
+         * @param {any[]} args args
+         * @return {void}
+         */
+        Object.defineProperty(this, "displayCommand", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (message, ...args) => this.multiLineOutput(coreExports.info, message => `[command]${message}`, message, ...args)
+        });
+        /**
+         * @param {string|string[]} message message
+         * @return {void}
+         */
+        Object.defineProperty(this, "displayStdout", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (message) => this.multiLineOutput(coreExports.info, message => `  >> ${message}`, message)
+        });
+        /**
+         * @param {string|string[]} message message
+         * @return {void}
+         */
+        Object.defineProperty(this, "displayStderr", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (message) => this.multiLineOutput(coreExports.warning, message => `  >> ${message}`, message)
+        });
+        /**
+         * @param {string} message message
+         * @param {any[]} args args
+         * @return {void}
+         */
+        Object.defineProperty(this, "startProcess", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (message, ...args) => {
+                if (this.notUseGroup) {
+                    this.info(message, ...args);
+                    return;
+                }
+                this.endProcess();
+                coreExports.startGroup(this.getOutputString(message, ...args));
+                Logger.isRequiredEndGroup = true;
+            }
+        });
+        /**
+         * @return {void}
+         */
+        Object.defineProperty(this, "endProcess", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: () => {
+                if (this.notUseGroup) {
+                    return;
+                }
+                if (Logger.isRequiredEndGroup) {
+                    coreExports.endGroup();
+                    Logger.isRequiredEndGroup = false;
+                }
+            }
+        });
+        /**
+         * @param {string} string string
+         * @param {Setting|undefined} setting setting
+         * @return {string} color string
+         */
+        Object.defineProperty(this, "getColorString", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (string, setting) => {
+                const color = setting?.color ?? 'white';
+                const backColor = setting?.backColor ?? 'black';
+                const attribute = setting?.attribute ?? 'none';
+                if (attribute !== 'none') {
+                    return sprintf.sprintf('\x1b[3%d;4%d;%dm%s\x1b[0m', COLOR_MAP[color], COLOR_MAP[backColor], ATTRIBUTE_MAP[attribute], string);
+                }
+                return sprintf.sprintf('\x1b[3%d;4%dm%s\x1b[0m', COLOR_MAP[color], COLOR_MAP[backColor], string);
+            }
+        });
+        /**
+         * @param {string} string string
+         * @param {Setting|undefined} setting setting
+         * @return {string} color string
+         */
+        Object.defineProperty(this, "c", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: (string, setting) => this.getColorString(string, setting)
+        }); // eslint-disable-line id-length
+        this.replacer = replacer ? replacer : (text) => text;
+    }
+}
+Object.defineProperty(Logger, "isRequiredEndGroup", {
+    enumerable: true,
+    configurable: true,
+    writable: true,
+    value: false
+});
+/**
+ * @return {void}
+ */
+Object.defineProperty(Logger, "resetForTesting", {
+    enumerable: true,
+    configurable: true,
+    writable: true,
+    value: () => {
+        Logger.isRequiredEndGroup = false;
+    }
+});
+
 var pDefer$1 = () => {
 	const ret = {};
 
@@ -103381,7 +103864,7 @@ const parseVersion = (version, options) => {
     if (!matches) {
         return undefined;
     }
-    const fragments = split$1(matches[1], '.');
+    const fragments = split(matches[1], '.');
     // eslint-disable-next-line no-magic-numbers
     const length = options?.slice && options.slice < 0 ? (options.length ?? 3) : (options?.slice ?? options?.length ?? 3);
     // eslint-disable-next-line no-magic-numbers
@@ -103454,7 +103937,7 @@ const getSuffixRegExp = (value, flags = '') => new RegExp(escapeRegExp(value) + 
 const getBoolValue = (input) => !['false', '0', '', 'no', 'n'].includes(input.trim().toLowerCase());
 const uniqueArray = (array) => [...new Set(array)];
 const getWorkspace = () => process.env.GITHUB_WORKSPACE || '';
-const split$1 = (value, separator = /\r?\n/, limit) => value.length ? value.split(separator, limit) : [];
+const split = (value, separator = /\r?\n/, limit) => value.length ? value.split(separator, limit) : [];
 const getArrayInput = (name, required = false, separator = ',', unique = true) => {
     const arrayInput = coreExports.getInput(name, { required }).split(/\r?\n/).reduce((acc, line) => acc.concat(separator ? line.split(separator) : line).filter(item => item).map(item => item.trim()), []);
     return unique ? uniqueArray(arrayInput) : arrayInput;
@@ -103580,7 +104063,7 @@ var utils = /*#__PURE__*/Object.freeze({
     getBoolValue: getBoolValue,
     uniqueArray: uniqueArray,
     getWorkspace: getWorkspace,
-    split: split$1,
+    split: split,
     getArrayInput: getArrayInput,
     sleep: sleep,
     useNpm: useNpm,
@@ -104375,16 +104858,16 @@ class GitHelper {
                             const output = (await this.command.execAsync({ command, cwd: workDir }));
                             result.push({
                                 command: output.command,
-                                stdout: split$1(output.stdout),
-                                stderr: split$1(output.stderr),
+                                stdout: split(output.stdout),
+                                stderr: split(output.stderr),
                             });
                         }
                         else {
                             const output = (await this.command.execAsync({ cwd: workDir, ...command }));
                             result.push({
                                 command: output.command,
-                                stdout: split$1(output.stdout),
-                                stderr: split$1(output.stderr),
+                                stdout: split(output.stdout),
+                                stderr: split(output.stderr),
                             });
                         }
                     }
@@ -104874,490 +105357,8 @@ class GitHelper {
     }
 }
 
-var sprintf = {};
-
-/* global window, exports, define */
-
-(function (exports) {
-	!function() {
-
-	    var re = {
-	        not_string: /[^s]/,
-	        not_bool: /[^t]/,
-	        not_type: /[^T]/,
-	        not_primitive: /[^v]/,
-	        number: /[diefg]/,
-	        numeric_arg: /[bcdiefguxX]/,
-	        json: /[j]/,
-	        not_json: /[^j]/,
-	        text: /^[^\x25]+/,
-	        modulo: /^\x25{2}/,
-	        placeholder: /^\x25(?:([1-9]\d*)\$|\(([^)]+)\))?(\+)?(0|'[^$])?(-)?(\d+)?(?:\.(\d+))?([b-gijostTuvxX])/,
-	        key: /^([a-z_][a-z_\d]*)/i,
-	        key_access: /^\.([a-z_][a-z_\d]*)/i,
-	        index_access: /^\[(\d+)\]/,
-	        sign: /^[+-]/
-	    };
-
-	    function sprintf(key) {
-	        // `arguments` is not an array, but should be fine for this call
-	        return sprintf_format(sprintf_parse(key), arguments)
-	    }
-
-	    function vsprintf(fmt, argv) {
-	        return sprintf.apply(null, [fmt].concat(argv || []))
-	    }
-
-	    function sprintf_format(parse_tree, argv) {
-	        var cursor = 1, tree_length = parse_tree.length, arg, output = '', i, k, ph, pad, pad_character, pad_length, is_positive, sign;
-	        for (i = 0; i < tree_length; i++) {
-	            if (typeof parse_tree[i] === 'string') {
-	                output += parse_tree[i];
-	            }
-	            else if (typeof parse_tree[i] === 'object') {
-	                ph = parse_tree[i]; // convenience purposes only
-	                if (ph.keys) { // keyword argument
-	                    arg = argv[cursor];
-	                    for (k = 0; k < ph.keys.length; k++) {
-	                        if (arg == undefined) {
-	                            throw new Error(sprintf('[sprintf] Cannot access property "%s" of undefined value "%s"', ph.keys[k], ph.keys[k-1]))
-	                        }
-	                        arg = arg[ph.keys[k]];
-	                    }
-	                }
-	                else if (ph.param_no) { // positional argument (explicit)
-	                    arg = argv[ph.param_no];
-	                }
-	                else { // positional argument (implicit)
-	                    arg = argv[cursor++];
-	                }
-
-	                if (re.not_type.test(ph.type) && re.not_primitive.test(ph.type) && arg instanceof Function) {
-	                    arg = arg();
-	                }
-
-	                if (re.numeric_arg.test(ph.type) && (typeof arg !== 'number' && isNaN(arg))) {
-	                    throw new TypeError(sprintf('[sprintf] expecting number but found %T', arg))
-	                }
-
-	                if (re.number.test(ph.type)) {
-	                    is_positive = arg >= 0;
-	                }
-
-	                switch (ph.type) {
-	                    case 'b':
-	                        arg = parseInt(arg, 10).toString(2);
-	                        break
-	                    case 'c':
-	                        arg = String.fromCharCode(parseInt(arg, 10));
-	                        break
-	                    case 'd':
-	                    case 'i':
-	                        arg = parseInt(arg, 10);
-	                        break
-	                    case 'j':
-	                        arg = JSON.stringify(arg, null, ph.width ? parseInt(ph.width) : 0);
-	                        break
-	                    case 'e':
-	                        arg = ph.precision ? parseFloat(arg).toExponential(ph.precision) : parseFloat(arg).toExponential();
-	                        break
-	                    case 'f':
-	                        arg = ph.precision ? parseFloat(arg).toFixed(ph.precision) : parseFloat(arg);
-	                        break
-	                    case 'g':
-	                        arg = ph.precision ? String(Number(arg.toPrecision(ph.precision))) : parseFloat(arg);
-	                        break
-	                    case 'o':
-	                        arg = (parseInt(arg, 10) >>> 0).toString(8);
-	                        break
-	                    case 's':
-	                        arg = String(arg);
-	                        arg = (ph.precision ? arg.substring(0, ph.precision) : arg);
-	                        break
-	                    case 't':
-	                        arg = String(!!arg);
-	                        arg = (ph.precision ? arg.substring(0, ph.precision) : arg);
-	                        break
-	                    case 'T':
-	                        arg = Object.prototype.toString.call(arg).slice(8, -1).toLowerCase();
-	                        arg = (ph.precision ? arg.substring(0, ph.precision) : arg);
-	                        break
-	                    case 'u':
-	                        arg = parseInt(arg, 10) >>> 0;
-	                        break
-	                    case 'v':
-	                        arg = arg.valueOf();
-	                        arg = (ph.precision ? arg.substring(0, ph.precision) : arg);
-	                        break
-	                    case 'x':
-	                        arg = (parseInt(arg, 10) >>> 0).toString(16);
-	                        break
-	                    case 'X':
-	                        arg = (parseInt(arg, 10) >>> 0).toString(16).toUpperCase();
-	                        break
-	                }
-	                if (re.json.test(ph.type)) {
-	                    output += arg;
-	                }
-	                else {
-	                    if (re.number.test(ph.type) && (!is_positive || ph.sign)) {
-	                        sign = is_positive ? '+' : '-';
-	                        arg = arg.toString().replace(re.sign, '');
-	                    }
-	                    else {
-	                        sign = '';
-	                    }
-	                    pad_character = ph.pad_char ? ph.pad_char === '0' ? '0' : ph.pad_char.charAt(1) : ' ';
-	                    pad_length = ph.width - (sign + arg).length;
-	                    pad = ph.width ? (pad_length > 0 ? pad_character.repeat(pad_length) : '') : '';
-	                    output += ph.align ? sign + arg + pad : (pad_character === '0' ? sign + pad + arg : pad + sign + arg);
-	                }
-	            }
-	        }
-	        return output
-	    }
-
-	    var sprintf_cache = Object.create(null);
-
-	    function sprintf_parse(fmt) {
-	        if (sprintf_cache[fmt]) {
-	            return sprintf_cache[fmt]
-	        }
-
-	        var _fmt = fmt, match, parse_tree = [], arg_names = 0;
-	        while (_fmt) {
-	            if ((match = re.text.exec(_fmt)) !== null) {
-	                parse_tree.push(match[0]);
-	            }
-	            else if ((match = re.modulo.exec(_fmt)) !== null) {
-	                parse_tree.push('%');
-	            }
-	            else if ((match = re.placeholder.exec(_fmt)) !== null) {
-	                if (match[2]) {
-	                    arg_names |= 1;
-	                    var field_list = [], replacement_field = match[2], field_match = [];
-	                    if ((field_match = re.key.exec(replacement_field)) !== null) {
-	                        field_list.push(field_match[1]);
-	                        while ((replacement_field = replacement_field.substring(field_match[0].length)) !== '') {
-	                            if ((field_match = re.key_access.exec(replacement_field)) !== null) {
-	                                field_list.push(field_match[1]);
-	                            }
-	                            else if ((field_match = re.index_access.exec(replacement_field)) !== null) {
-	                                field_list.push(field_match[1]);
-	                            }
-	                            else {
-	                                throw new SyntaxError('[sprintf] failed to parse named argument key')
-	                            }
-	                        }
-	                    }
-	                    else {
-	                        throw new SyntaxError('[sprintf] failed to parse named argument key')
-	                    }
-	                    match[2] = field_list;
-	                }
-	                else {
-	                    arg_names |= 2;
-	                }
-	                if (arg_names === 3) {
-	                    throw new Error('[sprintf] mixing positional and named placeholders is not (yet) supported')
-	                }
-
-	                parse_tree.push(
-	                    {
-	                        placeholder: match[0],
-	                        param_no:    match[1],
-	                        keys:        match[2],
-	                        sign:        match[3],
-	                        pad_char:    match[4],
-	                        align:       match[5],
-	                        width:       match[6],
-	                        precision:   match[7],
-	                        type:        match[8]
-	                    }
-	                );
-	            }
-	            else {
-	                throw new SyntaxError('[sprintf] unexpected placeholder')
-	            }
-	            _fmt = _fmt.substring(match[0].length);
-	        }
-	        return sprintf_cache[fmt] = parse_tree
-	    }
-
-	    /**
-	     * export to either browser or node.js
-	     */
-	    /* eslint-disable quote-props */
-	    {
-	        exports['sprintf'] = sprintf;
-	        exports['vsprintf'] = vsprintf;
-	    }
-	    if (typeof window !== 'undefined') {
-	        window['sprintf'] = sprintf;
-	        window['vsprintf'] = vsprintf;
-	    }
-	    /* eslint-enable quote-props */
-	}(); // eslint-disable-line
-} (sprintf));
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const COLOR_MAP = {
-    'black': 0,
-    'red': 1,
-    'green': 2,
-    'yellow': 3,
-    'blue': 4,
-    'magenta': 5,
-    'cyan': 6,
-    'white': 7,
-};
-const ATTRIBUTE_MAP = {
-    'none': 0,
-    'bold': 1,
-    'underline': 4,
-    'italic': 3,
-};
-const split = (value) => value.split(/\r?\n/);
-/**
- * Logger
- */
-class Logger {
-    /**
-     * @param {function|undefined} replacer replacer
-     * @param {boolean} notUseGroup not use group?
-     */
-    constructor(replacer, notUseGroup = false) {
-        Object.defineProperty(this, "notUseGroup", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: notUseGroup
-        });
-        Object.defineProperty(this, "replacer", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: void 0
-        });
-        /**
-         * @param {string} message message
-         * @return {string[]} messages
-         */
-        Object.defineProperty(this, "splitMessage", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (message) => split(message.replace(/\r?\n$/, ''))
-        });
-        /**
-         * @param {string} message message
-         * @param {any[]} args args
-         * @return {string} output string
-         */
-        Object.defineProperty(this, "getOutputString", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (message, ...args) => args.length ? sprintf.sprintf(this.replacer(message), ...args.map(arg => 'string' === typeof arg ? this.replacer(arg) : arg)) : this.replacer(message)
-        });
-        /**
-         * @param {function} output output function
-         * @param {function|null} replacer replacer
-         * @param {string|string[]} message message
-         * @param {any[]} args args
-         */
-        Object.defineProperty(this, "multiLineOutput", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (output, replacer, message, ...args) => {
-                if (!message) {
-                    output('');
-                    return;
-                }
-                if ('string' !== typeof message) {
-                    message.forEach(message => {
-                        this.multiLineOutput(output, replacer, message, ...args);
-                    });
-                    return;
-                }
-                this.splitMessage(message).forEach(message => output(this.getOutputString(replacer ? replacer(message) : message, ...args)));
-            }
-        });
-        /**
-         * @param {string|string[]} message message
-         * @param {any[]} args args
-         * @return {void}
-         */
-        Object.defineProperty(this, "log", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (message, ...args) => this.multiLineOutput(coreExports.info, null, message, ...args)
-        });
-        /**
-         * @param {string|string[]} message message
-         * @param {any[]} args args
-         * @return {void}
-         */
-        Object.defineProperty(this, "info", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (message, ...args) => this.multiLineOutput(coreExports.info, message => `> ${message}`, message, ...args)
-        });
-        /**
-         * @param {string|string[]} message message
-         * @param {any[]} args args
-         * @return {void}
-         */
-        Object.defineProperty(this, "debug", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (message, ...args) => this.multiLineOutput(coreExports.debug, null, message, ...args)
-        });
-        /**
-         * @param {string|string[]} message message
-         * @param {any[]} args args
-         * @return {void}
-         */
-        Object.defineProperty(this, "error", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (message, ...args) => this.multiLineOutput(coreExports.error, null, message, ...args)
-        });
-        /**
-         * @param {string|string[]} message message
-         * @param {any[]} args args
-         * @return {void}
-         */
-        Object.defineProperty(this, "warn", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (message, ...args) => this.multiLineOutput(coreExports.warning, null, message, ...args)
-        });
-        /**
-         * @param {string|string[]} message message
-         * @param {any[]} args args
-         * @return {void}
-         */
-        Object.defineProperty(this, "displayCommand", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (message, ...args) => this.multiLineOutput(coreExports.info, message => `[command]${message}`, message, ...args)
-        });
-        /**
-         * @param {string|string[]} message message
-         * @return {void}
-         */
-        Object.defineProperty(this, "displayStdout", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (message) => this.multiLineOutput(coreExports.info, message => `  >> ${message}`, message)
-        });
-        /**
-         * @param {string|string[]} message message
-         * @return {void}
-         */
-        Object.defineProperty(this, "displayStderr", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (message) => this.multiLineOutput(coreExports.warning, message => `  >> ${message}`, message)
-        });
-        /**
-         * @param {string} message message
-         * @param {any[]} args args
-         * @return {void}
-         */
-        Object.defineProperty(this, "startProcess", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (message, ...args) => {
-                if (this.notUseGroup) {
-                    this.info(message, ...args);
-                    return;
-                }
-                this.endProcess();
-                coreExports.startGroup(this.getOutputString(message, ...args));
-                Logger.isRequiredEndGroup = true;
-            }
-        });
-        /**
-         * @return {void}
-         */
-        Object.defineProperty(this, "endProcess", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: () => {
-                if (this.notUseGroup) {
-                    return;
-                }
-                if (Logger.isRequiredEndGroup) {
-                    coreExports.endGroup();
-                    Logger.isRequiredEndGroup = false;
-                }
-            }
-        });
-        /**
-         * @param {string} string string
-         * @param {Setting|undefined} setting setting
-         * @return {string} color string
-         */
-        Object.defineProperty(this, "getColorString", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (string, setting) => {
-                const color = setting?.color ?? 'white';
-                const backColor = setting?.backColor ?? 'black';
-                const attribute = setting?.attribute ?? 'none';
-                if (attribute !== 'none') {
-                    return sprintf.sprintf('\x1b[3%d;4%d;%dm%s\x1b[0m', COLOR_MAP[color], COLOR_MAP[backColor], ATTRIBUTE_MAP[attribute], string);
-                }
-                return sprintf.sprintf('\x1b[3%d;4%dm%s\x1b[0m', COLOR_MAP[color], COLOR_MAP[backColor], string);
-            }
-        });
-        /**
-         * @param {string} string string
-         * @param {Setting|undefined} setting setting
-         * @return {string} color string
-         */
-        Object.defineProperty(this, "c", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: (string, setting) => this.getColorString(string, setting)
-        }); // eslint-disable-line id-length
-        this.replacer = replacer ? replacer : (text) => text;
-    }
-}
-Object.defineProperty(Logger, "isRequiredEndGroup", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: false
-});
-/**
- * @return {void}
- */
-Object.defineProperty(Logger, "resetForTesting", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: () => {
-        Logger.isRequiredEndGroup = false;
-    }
-});
-
 var REMOTE_NAME = "chatgpt-pr";
+var COMMENT_HEADING = "## PR SUMMARY \n *Generated by chat-gpt* \n";
 
 // Taken from: https://github.dev/technote-space/get-diff-action/tree/main/src/utils
 function getPrNumber() {
@@ -105489,11 +105490,14 @@ function getDiff(logger, context) {
 
 function run() {
     return __awaiter$1(this, void 0, void 0, function () {
-        var inputs, _a, owner, repo, prNumber, octokit, context, logger, diff, summary, error_1;
+        var context, logger, inputs, _a, owner, repo, prNumber, octokit, diff, summary, body, error_1;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
                     _b.trys.push([0, 4, , 5]);
+                    context = new Context_1();
+                    logger = new Logger();
+                    console.log("Parsing inputs...");
                     inputs = {
                         token: coreExports.getInput("GITHUB_TOKEN"),
                         repository: coreExports.getInput("repository"),
@@ -105509,29 +105513,26 @@ function run() {
                         throw new Error("Cannot determine pr number");
                     }
                     octokit = github.getOctokit(inputs.token);
-                    console.log(github.context);
-                    context = new Context_1();
-                    logger = new Logger();
+                    // Get pr diff
+                    console.log("Checking diff...");
                     return [4 /*yield*/, getDiff(logger, context)];
                 case 1:
                     diff = _b.sent();
+                    // Get summary from chatgpt
+                    console.log("Generating Summary...");
                     return [4 /*yield*/, getSummary(inputs.chatGptSessionKey, diff)];
                 case 2:
                     summary = _b.sent();
-                    console.log("summary");
-                    console.log(summary);
-                    console.log(owner);
-                    console.log(repo);
-                    console.log(prNumber);
+                    body = COMMENT_HEADING + summary;
                     // Create commit comment with output
+                    console.log("Generating comment...");
                     return [4 /*yield*/, octokit.rest.issues.createComment({
                             owner: owner,
                             repo: repo,
                             issue_number: prNumber,
-                            body: summary
+                            body: body
                         })];
                 case 3:
-                    // Create commit comment with output
                     _b.sent();
                     return [3 /*break*/, 5];
                 case 4:
