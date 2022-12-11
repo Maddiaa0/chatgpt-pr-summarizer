@@ -1,11 +1,12 @@
 name: "Chat GPT PR Explainer"
 description: "Get a synopsis of the changes made in a PR"
+author: "Maddiaa"
+
 inputs:
   chat-gpt-session-key: # id of input
     description: "chat gpt session key"
     required: true
+
 runs:
-  using: "composite"
-    - run: Get Info from Chat GPT 
-      using: "node16"
-      main: "dist/index.js"
+  using: "node16"
+  main: "dist/index.js"
