@@ -28,7 +28,7 @@ jobs:
       - name: "Summarize"
         uses: cheethas/chatgpt-pr-summarizer@v1
         with:
-          chatgpt-session-token: ${{ secrets.GHATGPT_SESSION }}
+          chatgpt-session-token: ${{ secrets.CHATGPT_SESSION }}
 ```
 
 ## Example
