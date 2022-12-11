@@ -105499,8 +105499,6 @@ function run() {
                         repository: coreExports.getInput("repository"),
                         sha: coreExports.getInput("sha"),
                         body: coreExports.getInput("body"),
-                        path: coreExports.getInput("path"),
-                        position: +coreExports.getInput("position"),
                         chatGptSessionKey: coreExports.getInput("chat-gpt-session-key")
                     };
                     _a = inputs.repository.split("/"), owner = _a[0], repo = _a[1];
@@ -105533,9 +105531,7 @@ function run() {
                             owner: owner,
                             repo: repo,
                             commit_sha: sha,
-                            body: summary,
-                            path: inputs.path,
-                            position: inputs.position
+                            body: summary
                         })];
                 case 3:
                     // Create commit comment with output

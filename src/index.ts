@@ -12,8 +12,6 @@ type Inputs = {
   repository: string;
   sha: string;
   body: string;
-  path: string;
-  position: number;
   chatGptSessionKey: string;
 };
 
@@ -25,8 +23,6 @@ async function run(): Promise<void> {
       repository: core.getInput("repository"),
       sha: core.getInput("sha"),
       body: core.getInput("body"),
-      path: core.getInput("path"),
-      position: +core.getInput("position"),
       chatGptSessionKey: core.getInput("chat-gpt-session-key"),
     };
     const [owner, repo] = inputs.repository.split("/");
@@ -62,8 +58,6 @@ async function run(): Promise<void> {
       repo: repo,
       commit_sha: sha,
       body: summary,
-      path: inputs.path,
-      position: inputs.position,
     });
   } catch (error) {
     if (error instanceof Error) {
