@@ -1,6 +1,6 @@
 /.vscode
-/node_modules
 /coverage
+node_modules/
 /lib
 .eslintcache
 .env

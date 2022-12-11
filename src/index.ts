@@ -1,6 +1,7 @@
 import core from "@actions/core";
 import github from "@actions/github";
 import { inspect } from "util";
+import { getSummary } from "./chatgpt";
 import { getSha } from "./utils";
 
 type Inputs = {
@@ -41,14 +42,14 @@ async function run(): Promise<void> {
     console.log(inputs.diff);
     // Get the json webhook payload for the event that triggered the workflow
 
-    const chatGptOutput = "output test";
+    const summary = await getSummary(inputs.chatGptSessionKey, inputs.diff);
 
     // Create commit comment with output
     await octokit.rest.repos.createCommitComment({
       owner: owner,
       repo: repo,
       commit_sha: sha,
-      body: chatGptOutput,
+      body: summary,
       path: inputs.path,
       position: inputs.position,
     });
