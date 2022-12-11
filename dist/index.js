@@ -105490,22 +105490,19 @@ function getDiff(logger, context) {
 function run() {
     return __awaiter$1(this, void 0, void 0, function () {
         var inputs, _a, owner, repo, sha, octokit, context, logger, diff, summary, error_1;
-        var _b;
-        return __generator(this, function (_c) {
-            switch (_c.label) {
+        return __generator(this, function (_b) {
+            switch (_b.label) {
                 case 0:
-                    _c.trys.push([0, 5, , 6]);
-                    _b = {};
-                    return [4 /*yield*/, coreExports.getIDToken()];
-                case 1:
-                    inputs = (_b.token = _c.sent(),
-                        _b.repository = coreExports.getInput("repository"),
-                        _b.sha = coreExports.getInput("sha"),
-                        _b.body = coreExports.getInput("body"),
-                        _b.path = coreExports.getInput("path"),
-                        _b.position = +coreExports.getInput("position"),
-                        _b.chatGptSessionKey = coreExports.getInput("chat-gpt-session-key"),
-                        _b);
+                    _b.trys.push([0, 4, , 5]);
+                    inputs = {
+                        token: coreExports.getInput("GITHUB_TOKEN"),
+                        repository: coreExports.getInput("repository"),
+                        sha: coreExports.getInput("sha"),
+                        body: coreExports.getInput("body"),
+                        path: coreExports.getInput("path"),
+                        position: +coreExports.getInput("position"),
+                        chatGptSessionKey: coreExports.getInput("chat-gpt-session-key")
+                    };
                     _a = inputs.repository.split("/"), owner = _a[0], repo = _a[1];
                     sha = inputs.sha ? inputs.sha : getSha();
                     if (!inputs.chatGptSessionKey) {
@@ -105518,8 +105515,8 @@ function run() {
                     context = new Context_1();
                     logger = new Logger();
                     return [4 /*yield*/, getDiff(logger, context)];
-                case 2:
-                    diff = _c.sent();
+                case 1:
+                    diff = _b.sent();
                     console.log("second context");
                     console.log(context);
                     console.log(diff);
@@ -105527,8 +105524,8 @@ function run() {
                     console.log("session t");
                     console.log(inputs.chatGptSessionKey);
                     return [4 /*yield*/, getSummary(inputs.chatGptSessionKey, diff)];
-                case 3:
-                    summary = _c.sent();
+                case 2:
+                    summary = _b.sent();
                     console.log("summary");
                     console.log(summary);
                     // Create commit comment with output
@@ -105540,18 +105537,18 @@ function run() {
                             path: inputs.path,
                             position: inputs.position
                         })];
-                case 4:
+                case 3:
                     // Create commit comment with output
-                    _c.sent();
-                    return [3 /*break*/, 6];
-                case 5:
-                    error_1 = _c.sent();
+                    _b.sent();
+                    return [3 /*break*/, 5];
+                case 4:
+                    error_1 = _b.sent();
                     if (error_1 instanceof Error) {
                         coreExports.debug(require$$6.inspect(error_1));
                         coreExports.setFailed(error_1.message);
                     }
-                    return [3 /*break*/, 6];
-                case 6: return [2 /*return*/];
+                    return [3 /*break*/, 5];
+                case 5: return [2 /*return*/];
             }
         });
     });

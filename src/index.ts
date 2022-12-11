@@ -21,7 +21,7 @@ async function run(): Promise<void> {
   try {
     // Parse action inputs
     const inputs: Inputs = {
-      token: await core.getIDToken(),
+      token: core.getInput("GITHUB_TOKEN"),
       repository: core.getInput("repository"),
       sha: core.getInput("sha"),
       body: core.getInput("body"),
