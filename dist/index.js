@@ -105510,24 +105510,19 @@ function run() {
                     }
                     octokit = github.getOctokit(inputs.token);
                     console.log(github.context);
-                    // Get pr diff
-                    console.log("diff");
                     context = new Context_1();
                     logger = new Logger();
                     return [4 /*yield*/, getDiff(logger, context)];
                 case 1:
                     diff = _b.sent();
-                    console.log("second context");
-                    console.log(context);
-                    console.log(diff);
-                    // Get summary from chatgpt
-                    console.log("session t");
-                    console.log(inputs.chatGptSessionKey);
                     return [4 /*yield*/, getSummary(inputs.chatGptSessionKey, diff)];
                 case 2:
                     summary = _b.sent();
                     console.log("summary");
                     console.log(summary);
+                    console.log(owner);
+                    console.log(repo);
+                    console.log(prNumber);
                     // Create commit comment with output
                     return [4 /*yield*/, octokit.rest.issues.createComment({
                             owner: owner,

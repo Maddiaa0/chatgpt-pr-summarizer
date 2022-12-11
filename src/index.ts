@@ -37,21 +37,19 @@ async function run(): Promise<void> {
     console.log(github.context);
 
     // Get pr diff
-    console.log("diff");
     const context = new Context();
     const logger = new Logger();
     const diff = await getDiff(logger, context);
-    console.log("second context");
-    console.log(context);
-    console.log(diff);
 
     // Get summary from chatgpt
-    console.log("session t");
-    console.log(inputs.chatGptSessionKey);
     const summary = await getSummary(inputs.chatGptSessionKey, diff);
 
     console.log("summary");
     console.log(summary);
+
+    console.log(owner);
+    console.log(repo);
+    console.log(prNumber);
 
     // Create commit comment with output
     await octokit.rest.issues.createComment({
