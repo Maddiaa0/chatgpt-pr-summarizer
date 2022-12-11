@@ -14,15 +14,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cheethas/chatgpt-pr-summariser.git"
+    "url": "git+https://github.com/cheethas/chatgpt-pr-summarizer.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/cheethas/chatgpt-pr-summariser/issues"
+    "url": "https://github.com/cheethas/chatgpt-pr-summarizer/issues"
   },
-  "homepage": "https://github.com/cheethas/chatgpt-pr-summariser#readme",
+  "homepage": "https://github.com/cheethas/chatgpt-pr-summarizer#readme",
   "devDependencies": {
     "@actions/core": "^1.10.0",
     "@actions/github": "^5.1.1",

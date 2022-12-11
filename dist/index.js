@@ -105502,11 +105502,11 @@ function run() {
                         token: coreExports.getInput("GITHUB_TOKEN"),
                         repository: coreExports.getInput("repository"),
                         body: coreExports.getInput("body"),
-                        chatGptSessionKey: coreExports.getInput("chat-gpt-session-key")
+                        chatGptSessionToken: coreExports.getInput("chatgpt-session-token")
                     };
                     _a = inputs.repository.split("/"), owner = _a[0], repo = _a[1];
-                    if (!inputs.chatGptSessionKey) {
-                        throw new Error("Missing Session Key");
+                    if (!inputs.chatGptSessionToken) {
+                        throw new Error("Missing Session Token");
                     }
                     prNumber = getPrNumber();
                     if (!prNumber) {
@@ -105520,7 +105520,7 @@ function run() {
                     diff = _b.sent();
                     // Get summary from chatgpt
                     console.log("Generating Summary...");
-                    return [4 /*yield*/, getSummary(inputs.chatGptSessionKey, diff)];
+                    return [4 /*yield*/, getSummary(inputs.chatGptSessionToken, diff)];
                 case 2:
                     summary = _b.sent();
                     body = COMMENT_HEADING + summary;

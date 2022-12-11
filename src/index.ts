@@ -20,11 +20,11 @@ async function run(): Promise<void> {
       token: core.getInput("GITHUB_TOKEN"),
       repository: core.getInput("repository"),
       body: core.getInput("body"),
-      chatGptSessionKey: core.getInput("chat-gpt-session-key"),
+      chatGptSessionToken: core.getInput("chatgpt-session-token"),
     };
     const [owner, repo] = inputs.repository.split("/");
-    if (!inputs.chatGptSessionKey) {
-      throw new Error("Missing Session Key");
+    if (!inputs.chatGptSessionToken) {
+      throw new Error("Missing Session Token");
     }
     const prNumber = getPrNumber();
     if (!prNumber) {
@@ -40,7 +40,7 @@ async function run(): Promise<void> {
 
     // Get summary from chatgpt
     console.log("Generating Summary...");
-    const summary = await getSummary(inputs.chatGptSessionKey, diff);
+    const summary = await getSummary(inputs.chatGptSessionToken, diff);
     const body = COMMENT_HEADING + summary;
 
     // Create commit comment with output

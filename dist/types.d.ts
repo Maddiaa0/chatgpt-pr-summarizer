@@ -26,5 +26,5 @@ export type Inputs = {
     token: string;
     repository: string;
     body: string;
-    chatGptSessionKey: string;
+    chatGptSessionToken: string;
 };
